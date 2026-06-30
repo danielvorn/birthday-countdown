@@ -173,6 +173,7 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    margin-bottom: 150px;
   }
   .gift-card {
     background: rgba(255,255,255,0.08);
@@ -235,6 +236,28 @@
   .result.show { transform: translateY(0); }
   .result .big { font-family: 'Baloo 2', sans-serif; font-size: 1.05rem; margin-bottom: 4px; color: var(--gold); line-height: 1.3; }
   .result .small { font-size: 0.78rem; color: #f0d9ff; }
+  .custom-input {
+    width: 100%;
+    max-width: 320px;
+    margin: 10px auto 0;
+    display: block;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.18);
+    border-radius: 14px;
+    padding: 10px 14px;
+    color: white;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85rem;
+    resize: none;
+    min-height: 60px;
+  }
+  .custom-input:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
+  .custom-input::placeholder {
+    color: #b89fd0;
+  }
   .confirm-btn {
     margin-top: 12px;
     font-family: 'Baloo 2', sans-serif;
@@ -344,12 +367,18 @@
       <span class="gift-title">$100 Cash</span>
       <div class="gift-desc">No notes. No surprises. Just pure, unrestricted spending power.</div>
     </button>
+    <button class="gift-card" id="customGiftCard" data-custom="true">
+      <span class="gift-emoji">✍️</span>
+      <span class="gift-title">Something Else</span>
+      <div class="gift-desc">None of these quite right? Write in your own request.</div>
+    </button>
   </div>
 </div>
 
 <div class="result" id="result">
   <div class="big" id="resultText"></div>
   <div class="small" id="resultSubtext">Is this your final answer?</div>
+  <textarea class="custom-input" id="customInput" placeholder="Tell us what you'd like for your birthday..." maxlength="300" style="display:none;"></textarea>
   <button class="confirm-btn" id="confirmBtn">Confirm Selection 🎉</button>
   <button class="change-link" id="changeLink">Change my mind</button>
 </div>
@@ -427,6 +456,7 @@
   const resultSubtext = document.getElementById('resultSubtext');
   const confirmBtn = document.getElementById('confirmBtn');
   const changeLink = document.getElementById('changeLink');
+  const customInput = document.getElementById('customInput');
 
   let selectedCard = null;
 
@@ -436,26 +466,56 @@
       card.classList.add('selected');
       selectedCard = card;
 
-      resultText.textContent = card.dataset.result;
-      resultSubtext.textContent = 'Is this your final answer?';
+      const isCustom = card.dataset.custom === 'true';
+
+      if (isCustom) {
+        resultText.textContent = 'Write in your own gift idea:';
+        resultSubtext.textContent = '';
+        customInput.style.display = 'block';
+        customInput.value = '';
+        confirmBtn.disabled = true;
+      } else {
+        resultText.textContent = card.dataset.result;
+        resultSubtext.textContent = 'Is this your final answer?';
+        customInput.style.display = 'none';
+        confirmBtn.disabled = false;
+      }
+
       resultSubtext.classList.remove('confirmed-banner');
       confirmBtn.style.display = 'inline-block';
-      confirmBtn.disabled = false;
       confirmBtn.textContent = 'Confirm Selection 🎉';
       changeLink.style.display = 'inline-block';
       resultBox.classList.add('show');
     });
   });
 
+  customInput.addEventListener('input', () => {
+    confirmBtn.disabled = customInput.value.trim().length === 0;
+  });
+
   confirmBtn.addEventListener('click', () => {
     if (!selectedCard) return;
 
-    const giftTitle = selectedCard.querySelector('.gift-title').textContent;
+    const isCustom = selectedCard.dataset.custom === 'true';
+    let giftTitle, noteText = '';
+
+    if (isCustom) {
+      noteText = customInput.value.trim();
+      if (!noteText) return;
+      giftTitle = 'Custom Request';
+    } else {
+      giftTitle = selectedCard.querySelector('.gift-title').textContent;
+    }
 
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Confirmed ✅';
     changeLink.style.display = 'none';
-    resultSubtext.textContent = `"${giftTitle}" has been locked in. No takebacks. 😄`;
+    customInput.disabled = true;
+
+    if (isCustom) {
+      resultText.textContent = `"${noteText}"`;
+    }
+    resultSubtext.textContent = `Locked in. No takebacks. 😄`;
     resultSubtext.classList.add('confirmed-banner');
     cards.forEach(c => c.style.pointerEvents = 'none');
     cards.forEach(c => { if (c !== selectedCard) c.style.opacity = '0.5'; });
@@ -465,6 +525,7 @@
       headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify({
         gift_chosen: giftTitle,
+        custom_note: noteText,
         timestamp: new Date().toString(),
         status: 'confirmed'
       })
@@ -474,6 +535,8 @@
   changeLink.addEventListener('click', () => {
     cards.forEach(c => c.classList.remove('selected'));
     selectedCard = null;
+    customInput.style.display = 'none';
+    customInput.disabled = false;
     resultBox.classList.remove('show');
   });
 
